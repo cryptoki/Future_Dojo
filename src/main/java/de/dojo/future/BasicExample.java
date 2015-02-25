@@ -5,81 +5,86 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class BasicExample {
-    class Result {
+
+    public class Result {
         String info;
         long count;
 
-        @Override
-        public String toString() {
-            return "Result{" +
-                    "info='" + info + '\'' +
-                    ", count=" + count +
-                    '}';
-        }
+        Boolean nonBlocking;
+        Boolean async;
+        Boolean error;
+
     }
 
-    final CompletableFuture<Result> sampleSupplier = CompletableFuture.supplyAsync(() -> {
+    CompletableFuture<Result> supplyNewResult = CompletableFuture.supplyAsync(() -> {
         System.out.println("creating something new cool stuff");
         Result result = new Result();
-        sometimeWeHadToSleep(5, "Supplier");
+        sometimeWeHadToSleep(5, "SupplyNewResult");
         return result;
     });
 
-    Function<Result, CompletableFuture<Result>> func1 = (Result result) ->
+    Consumer<Result> consumeResult = (Result result) -> {
+        System.out.println("ConsumeResult with values " + result);
+    };
+
+
+    Function<Result, CompletableFuture<Result>> setCountAndGetAsFuture = (Result result) ->
             CompletableFuture.supplyAsync(() -> {
-                System.out.println("func1 " + Thread.currentThread());
+                System.out.println("SetCountAndGetAsFuture " + Thread.currentThread());
                 result.count++;
-                sometimeWeHadToSleep(250, "func1");
+                sometimeWeHadToSleep(250, "SetCountAndGetAsFuture");
                 return result;
             });
-    Function<Result, Result> func1a = (Result result) -> {
+
+    Function<Result, Result> setCountAndGetAsResult = (Result result) -> {
         System.out.println("func1a " + Thread.currentThread());
         result.count++;
         sometimeWeHadToSleep(250, "func1a");
         return result;
     };
 
-    Function<Result, CompletableFuture<Result>> func2 = (Result result) ->
+    Function<Result, CompletableFuture<Result>> setInfoAndGetAsFuture = (Result result) ->
             CompletableFuture.supplyAsync(() -> {
-                System.out.println("func2 " + Thread.currentThread());
+                System.out.println("SetInfoAndGetAsFuture " + Thread.currentThread());
                 result.info= "magic";
-                sometimeWeHadToSleep(100, "func2");
+                sometimeWeHadToSleep(100, "SetInfoAndGetAsFuture");
                 return result;
             });
 
-    Function<Result, Result> func2a = (Result result) -> {
-                System.out.println("func2a " + Thread.currentThread());
+    Function<Result, Result> setInfoAndGetAsResult = (Result result) -> {
+                System.out.println("SetInfoAndGetAsResult " + Thread.currentThread());
                 result.info= "magic";
-                sometimeWeHadToSleep(100, "func2a");
+                sometimeWeHadToSleep(100, "SetInfoAndGetAsResult");
                 return result;
     };
 
-    Consumer<Result> sampleConsumer = (Result result) -> {
-       System.out.println("consuming result with values " + result);
-    };
 
-
-    // non blocking main thread
-    // -> wenn Ergebnis nicht direkt benutzt wird, sondern lediglich von einem Consumer
-    //    verarbeitet, dann kann das schief gehen, da der main Thread eher beendet ist
+    /**
+     * main Thread ist Non Blocking
+     * -> wenn Ergebnis nicht direkt benutzt wird, sondern lediglich von einem Consumer
+     *    verarbeitet, dann kann das schief gehen, da der main Thread eher beendet ist
+     */
     public void example1() {
         System.out.println("starting example1 " + Thread.currentThread());
-        CompletableFuture<Void> result = sampleSupplier
-                .thenCompose(func1)
-                .thenCompose(func2)
-                .thenAccept(sampleConsumer);
+        CompletableFuture<Void> result = supplyNewResult
+                .thenCompose(setCountAndGetAsFuture)
+                .thenCompose(setInfoAndGetAsFuture)
+                .thenAccept(consumeResult);
         System.out.println("done example1 " + Thread.currentThread());
     }
 
-    // non blocking main thread
-    // -> auch wenn der consumer das Ergebnis "konsumiert", kann über die get Methode
-    //    die Verarbeitung abgewartet werden
+    /**
+     * main Thread non blocking
+     * -> mittels get und join kann die Verarbeitung blockierend abgewartet werden
+     * -> get/join liefern das Ergebnis.
+     * -> Ergebnis ist in diesem Fall Void
+     */
     public void example2() throws Exception {
         System.out.println("starting example2 " + Thread.currentThread());
-        CompletableFuture<Void> result = sampleSupplier
-                .thenCompose(func1)
-                .thenCompose(func2)
-                .thenAccept(sampleConsumer);
+        CompletableFuture<Void> result = supplyNewResult
+                .thenCompose(setCountAndGetAsFuture)
+                .thenCompose(setInfoAndGetAsFuture)
+                .thenAccept(consumeResult);
         System.out.println("done example2 " + Thread.currentThread());
         result.get();
         System.out.println("ready example2 " + Thread.currentThread());
@@ -88,9 +93,9 @@ public class BasicExample {
     // why is it parallel?
     public void example3() throws Exception {
         System.out.println("starting example3 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier
-                .thenComposeAsync(func1)
-                .thenComposeAsync(func2);
+        CompletableFuture<Result> result = supplyNewResult
+                .thenComposeAsync(setCountAndGetAsFuture)
+                .thenComposeAsync(setInfoAndGetAsFuture);
         System.out.println("done example3 " + Thread.currentThread());
         result.get();
         System.out.println("ready example3 " + Thread.currentThread());
@@ -99,10 +104,10 @@ public class BasicExample {
     // what's happend here?
     public void example4() throws Exception {
         System.out.println("starting example4 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier;
+        CompletableFuture<Result> result = supplyNewResult;
 
-        result.thenCompose(func1);
-        result.thenCompose(func2);
+        result.thenCompose(setCountAndGetAsFuture);
+        result.thenCompose(setInfoAndGetAsFuture);
 
         System.out.println("done example4 " + Thread.currentThread());
         result.get();
@@ -112,13 +117,13 @@ public class BasicExample {
     // what's happend here?
     public void example5() throws Exception {
         System.out.println("starting example5 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier;
+        CompletableFuture<Result> result = supplyNewResult;
 
-        CompletableFuture<Result> result1 = result.thenCompose(func1);
-        CompletableFuture<Result> result2 = result.thenCompose(func2);
+        CompletableFuture<Result> result1 = result.thenCompose(setCountAndGetAsFuture);
+        CompletableFuture<Result> result2 = result.thenCompose(setInfoAndGetAsFuture);
 
         // ups ;-)
-        result.thenAccept(sampleConsumer);
+        result.thenAccept(consumeResult);
 
         System.out.println("done example5 " + Thread.currentThread());
         result.get();
@@ -133,10 +138,10 @@ public class BasicExample {
      */
     public void example6() throws Exception {
         System.out.println("starting example6 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier;
+        CompletableFuture<Result> result = supplyNewResult;
 
-        CompletableFuture<Result> result1 = result.thenCompose(func1);
-        CompletableFuture<Result> result2 = result.thenCompose(func2);
+        CompletableFuture<Result> result1 = result.thenCompose(setCountAndGetAsFuture);
+        CompletableFuture<Result> result2 = result.thenCompose(setInfoAndGetAsFuture);
 
         result = result1.thenCombine(result2, (Result a, Result b) -> {
             System.out.println("lets combine together " + Thread.currentThread());
@@ -144,7 +149,7 @@ public class BasicExample {
             return a;
         });
 
-        result.thenAccept(sampleConsumer);
+        result.thenAccept(consumeResult);
 
         System.out.println("done example6 " + Thread.currentThread());
         result.get();
@@ -161,10 +166,10 @@ public class BasicExample {
      */
     public void example7() throws Exception {
         System.out.println("starting example7 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier;
+        CompletableFuture<Result> result = supplyNewResult;
 
-        CompletableFuture<Result> result1 = result.thenApply(func1a);
-        CompletableFuture<Result> result2 = result.thenApply(func2a);
+        CompletableFuture<Result> result1 = result.thenApply(setCountAndGetAsResult);
+        CompletableFuture<Result> result2 = result.thenApply(setInfoAndGetAsResult);
 
         result = result1.thenCombine(result2, (Result a, Result b) -> {
             System.out.println("lets combine together " + Thread.currentThread());
@@ -172,7 +177,7 @@ public class BasicExample {
             return a;
         });
 
-        result.thenAccept(sampleConsumer);
+        result.thenAccept(consumeResult);
 
         System.out.println("done example7 " + Thread.currentThread());
         result.get();
@@ -185,10 +190,10 @@ public class BasicExample {
      */
     public void example8() throws Exception {
         System.out.println("starting example8 " + Thread.currentThread());
-        CompletableFuture<Result> result = sampleSupplier;
+        CompletableFuture<Result> result = supplyNewResult;
 
-        CompletableFuture<Result> result1 = result.thenApplyAsync(func1a);
-        CompletableFuture<Result> result2 = result.thenApplyAsync(func2a);
+        CompletableFuture<Result> result1 = result.thenApplyAsync(setCountAndGetAsResult);
+        CompletableFuture<Result> result2 = result.thenApplyAsync(setInfoAndGetAsResult);
 
         result = result1.thenCombine(result2, (Result a, Result b) -> {
             System.out.println("lets combine together " + Thread.currentThread());
@@ -196,7 +201,7 @@ public class BasicExample {
             return a;
         });
 
-        result.thenAccept(sampleConsumer);
+        result.thenAccept(consumeResult);
 
         System.out.println("done example8 " + Thread.currentThread());
         result.get();
