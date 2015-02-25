@@ -127,6 +127,10 @@ public class BasicExample {
         System.out.println("ready example5 " + Thread.currentThread());
     }
 
+    /**
+     * parallel ausführen und zum Schluss Ergebnis zusammen führen
+     * => Function liefert Completeable Future, daher findet die Verarbeitung parallel statt
+     */
     public void example6() throws Exception {
         System.out.println("starting example6 " + Thread.currentThread());
         CompletableFuture<Result> result = sampleSupplier;
@@ -150,7 +154,10 @@ public class BasicExample {
     /**
      * Synchrone Verarbeitung
      * => Es handelt sich hierbei um eine Function, diese selbst ist synchron und
-     *    liefert kein ComputeableFuture zurück.
+     *    liefert kein ComputeableFuture zurück
+     * => Die Verarbeitung findet innerhalb eines Thread statt
+     *
+     * => die Verarbeitung im main thread ist selbst wieder non blocking
      */
     public void example7() throws Exception {
         System.out.println("starting example7 " + Thread.currentThread());
@@ -174,14 +181,14 @@ public class BasicExample {
 
     /**
      * Asynchrone Verarbeitung
-     * => Jetzt wird die
+     * => mittels thenApplyAsync wird die Verabeitung non blocking durchgeführt
      */
     public void example8() throws Exception {
-        System.out.println("starting example7 " + Thread.currentThread());
+        System.out.println("starting example8 " + Thread.currentThread());
         CompletableFuture<Result> result = sampleSupplier;
 
-        CompletableFuture<Result> result1 = result.thenApply(func1a);
-        CompletableFuture<Result> result2 = result.thenApply(func2a);
+        CompletableFuture<Result> result1 = result.thenApplyAsync(func1a);
+        CompletableFuture<Result> result2 = result.thenApplyAsync(func2a);
 
         result = result1.thenCombine(result2, (Result a, Result b) -> {
             System.out.println("lets combine together " + Thread.currentThread());
@@ -191,9 +198,9 @@ public class BasicExample {
 
         result.thenAccept(sampleConsumer);
 
-        System.out.println("done example7 " + Thread.currentThread());
+        System.out.println("done example8 " + Thread.currentThread());
         result.get();
-        System.out.println("ready example7 " + Thread.currentThread());
+        System.out.println("ready example8 " + Thread.currentThread());
     }
 
     public static final void main(String[] args) throws Exception {
