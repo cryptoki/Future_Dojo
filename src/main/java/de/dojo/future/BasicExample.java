@@ -14,47 +14,60 @@ public class BasicExample {
         Boolean async;
         Boolean error;
 
+        @Override
+        public String toString() {
+            return "Result{" +
+                    "info='" + info + '\'' +
+                    ", count=" + count +
+                    ", nonBlocking=" + nonBlocking +
+                    ", async=" + async +
+                    ", error=" + error +
+                    '}';
+        }
     }
 
+    // Supplier
     CompletableFuture<Result> supplyNewResult = CompletableFuture.supplyAsync(() -> {
-        System.out.println("creating something new cool stuff");
+        System.out.println("  [Supplier] creating something new cool stuff    (" + Thread.currentThread() + ")");
         Result result = new Result();
-        sometimeWeHadToSleep(5, "SupplyNewResult");
+        sometimeWeHadToSleep(5, "  [Supplier] SupplyNewResult", result);
         return result;
     });
 
+    // Consumer
     Consumer<Result> consumeResult = (Result result) -> {
-        System.out.println("ConsumeResult with values " + result);
+        System.out.println("  [Consume] Result with values " + result + "    (" + Thread.currentThread() + ").");
     };
 
 
+    // Function
     Function<Result, CompletableFuture<Result>> setCountAndGetAsFuture = (Result result) ->
             CompletableFuture.supplyAsync(() -> {
-                System.out.println("SetCountAndGetAsFuture " + Thread.currentThread());
+                System.out.println("  [1] SetCountAndGetAsFuture     (" + Thread.currentThread()+")");
                 result.count++;
-                sometimeWeHadToSleep(250, "SetCountAndGetAsFuture");
+                sometimeWeHadToSleep(350, "  [1] SetCountAndGetAsFuture", result);
                 return result;
             });
 
     Function<Result, Result> setCountAndGetAsResult = (Result result) -> {
-        System.out.println("func1a " + Thread.currentThread());
+        System.out.println("  [1] SetCountAndGetAsResult     (" + Thread.currentThread()+ ")");
         result.count++;
-        sometimeWeHadToSleep(250, "func1a");
+        sometimeWeHadToSleep(350, "  [1] SetCountAndGetAsResult", result);
         return result;
     };
 
     Function<Result, CompletableFuture<Result>> setInfoAndGetAsFuture = (Result result) ->
             CompletableFuture.supplyAsync(() -> {
-                System.out.println("SetInfoAndGetAsFuture " + Thread.currentThread());
+                System.out.println("  [2] SetInfoAndGetAsFuture      (" + Thread.currentThread()+ ")");
                 result.info= "magic";
-                sometimeWeHadToSleep(100, "SetInfoAndGetAsFuture");
+                sometimeWeHadToSleep(200, "  [2] SetInfoAndGetAsFuture ", result);
                 return result;
             });
 
     Function<Result, Result> setInfoAndGetAsResult = (Result result) -> {
-                System.out.println("SetInfoAndGetAsResult " + Thread.currentThread());
+                System.out.println("  [2] SetInfoAndGetAsResult      (" + Thread.currentThread() + ")");
                 result.info= "magic";
-                sometimeWeHadToSleep(100, "SetInfoAndGetAsResult");
+                sometimeWeHadToSleep(200, "  [2] SetInfoAndGetAsResult ", result);
                 return result;
     };
 
@@ -76,7 +89,7 @@ public class BasicExample {
     /**
      * main Thread non blocking
      * -> mittels get und join kann die Verarbeitung blockierend abgewartet werden
-     * -> get/join liefern das Ergebnis.
+     * -> get/join liefern das Ergebnis
      * -> Ergebnis ist in diesem Fall Void
      */
     public void example2() throws Exception {
@@ -90,14 +103,16 @@ public class BasicExample {
         System.out.println("ready example2 " + Thread.currentThread());
     }
 
-    // why is it parallel?
+    /**
+     * ???
+     */
     public void example3() throws Exception {
         System.out.println("starting example3 " + Thread.currentThread());
         CompletableFuture<Result> result = supplyNewResult
                 .thenComposeAsync(setCountAndGetAsFuture)
                 .thenComposeAsync(setInfoAndGetAsFuture);
         System.out.println("done example3 " + Thread.currentThread());
-        result.get();
+        result.join();
         System.out.println("ready example3 " + Thread.currentThread());
     }
 
@@ -208,17 +223,33 @@ public class BasicExample {
         System.out.println("ready example8 " + Thread.currentThread());
     }
 
+    // why is it parallel?
+    public void example9() throws Exception {
+        System.out.println("starting example3 " + Thread.currentThread());
+        CompletableFuture<Result> result = supplyNewResult
+                .thenComposeAsync(setCountAndGetAsFuture)
+                .thenComposeAsync(setInfoAndGetAsFuture);
+        System.out.println("done example3 " + Thread.currentThread());
+        System.out.println("ready example3 " + Thread.currentThread());
+
+        result = supplyNewResult
+                .thenComposeAsync(setCountAndGetAsFuture)
+                .thenComposeAsync(setInfoAndGetAsFuture);
+        System.out.println("done example3 " + Thread.currentThread());
+        result.get();
+        System.out.println("ready example3 " + Thread.currentThread());
+    }
     public static final void main(String[] args) throws Exception {
         BasicExample basicExample = new BasicExample();
-        basicExample.example7();
+        basicExample.example3();
     }
 
 
-    public static final void sometimeWeHadToSleep(long time, String message) {
+    public static final void sometimeWeHadToSleep(long time, String message, Result result) {
         try {
-            System.out.println(message + " sleep " + Thread.currentThread());
+            System.out.println(message + " -sleep-    (" + Thread.currentThread()+ ") - " + result);
             Thread.sleep(time);
-            System.out.println(message + " done " + Thread.currentThread());
+            System.out.println(message + " +done+     (" + Thread.currentThread()+ ") - " + result);
         }
         catch(Exception exc) {exc.printStackTrace();}
     }

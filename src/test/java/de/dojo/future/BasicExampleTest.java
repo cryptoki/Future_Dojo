@@ -30,4 +30,40 @@ public class BasicExampleTest {
         BasicExample basicExample = new BasicExample();
         basicExample.example3();
     }
+
+    @Test
+    public void example4() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example4();
+    }
+
+    @Test
+    public void example5() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example5();
+    }
+
+    @Test
+    public void example6() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example6();
+    }
+
+    @Test
+    public void example7() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example7();
+    }
+
+    @Test
+    public void example8() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example8();
+    }
+
+    @Test
+    public void example9() throws Exception {
+        BasicExample basicExample = new BasicExample();
+        basicExample.example9();
+    }
 }
