@@ -26,6 +26,16 @@ public class BasicExample {
         }
     }
 
+    private CompletableFuture<Result> getSupplyNewResult(String id) {
+        return
+        CompletableFuture.supplyAsync(() -> {
+            System.out.println("  [Supplier" + id + "] creating something new cool stuff    (" + Thread.currentThread() + ")");
+            Result result = new Result();
+            sometimeWeHadToSleep(5, "  [Supplier" + id + "] SupplyNewResult", result);
+            return result;
+        });
+    }
+
     // Supplier
     CompletableFuture<Result> supplyNewResult = CompletableFuture.supplyAsync(() -> {
         System.out.println("  [Supplier] creating something new cool stuff    (" + Thread.currentThread() + ")");
@@ -48,6 +58,15 @@ public class BasicExample {
                 sometimeWeHadToSleep(350, "  [1] SetCountAndGetAsFuture", result);
                 return result;
             });
+    Function<Result, CompletableFuture<Result>> setCountAndGetAsTest = (Result result) -> {
+        CompletableFuture<Result> bla = new CompletableFuture<>();
+        System.out.println("  [1] SetCountAndGetAsFuture     (" + Thread.currentThread()+")");
+        result.count++;
+        sometimeWeHadToSleep(350, "  [1] SetCountAndGetAsFuture", result);
+        bla.complete(result);
+        return bla;
+    };
+
 
     Function<Result, Result> setCountAndGetAsResult = (Result result) -> {
         System.out.println("  [1] SetCountAndGetAsResult     (" + Thread.currentThread()+ ")");
@@ -55,6 +74,7 @@ public class BasicExample {
         sometimeWeHadToSleep(350, "  [1] SetCountAndGetAsResult", result);
         return result;
     };
+
 
     Function<Result, CompletableFuture<Result>> setInfoAndGetAsFuture = (Result result) ->
             CompletableFuture.supplyAsync(() -> {
@@ -121,8 +141,8 @@ public class BasicExample {
         System.out.println("starting example4 " + Thread.currentThread());
         CompletableFuture<Result> result = supplyNewResult;
 
-        result.thenCompose(setCountAndGetAsFuture);
-        result.thenCompose(setInfoAndGetAsFuture);
+        CompletableFuture<Result> bla = result.thenCompose(setCountAndGetAsFuture);
+        CompletableFuture<Result> blub = result.thenCompose(setInfoAndGetAsFuture);
 
         System.out.println("done example4 " + Thread.currentThread());
         result.get();
@@ -137,13 +157,12 @@ public class BasicExample {
         CompletableFuture<Result> result1 = result.thenCompose(setCountAndGetAsFuture);
         CompletableFuture<Result> result2 = result.thenCompose(setInfoAndGetAsFuture);
 
-        // ups ;-)
-        result.thenAccept(consumeResult);
-
         System.out.println("done example5 " + Thread.currentThread());
         result.get();
         result1.get();
         result2.get();
+        result.thenAccept(consumeResult);
+
         System.out.println("ready example5 " + Thread.currentThread());
     }
 
@@ -167,7 +186,8 @@ public class BasicExample {
         result.thenAccept(consumeResult);
 
         System.out.println("done example6 " + Thread.currentThread());
-        result.get();
+        System.out.println("bla " + result.get());
+        result.thenAccept((Result blafo) -> System.out.println("blub " + blafo));
         System.out.println("ready example6 " + Thread.currentThread());
     }
 
@@ -223,25 +243,104 @@ public class BasicExample {
         System.out.println("ready example8 " + Thread.currentThread());
     }
 
-    // why is it parallel?
+    /**
+     * acceptEither
+     */
     public void example9() throws Exception {
-        System.out.println("starting example3 " + Thread.currentThread());
-        CompletableFuture<Result> result = supplyNewResult
+        System.out.println("starting example9 " + Thread.currentThread());
+        CompletableFuture<Result> result1 = supplyNewResult
                 .thenComposeAsync(setCountAndGetAsFuture)
                 .thenComposeAsync(setInfoAndGetAsFuture);
-        System.out.println("done example3 " + Thread.currentThread());
-        System.out.println("ready example3 " + Thread.currentThread());
+        System.out.println("done example9 " + Thread.currentThread());
+        System.out.println("ready example9 " + Thread.currentThread());
 
-        result = supplyNewResult
+        CompletableFuture<Result> result2 = supplyNewResult
                 .thenComposeAsync(setCountAndGetAsFuture)
-                .thenComposeAsync(setInfoAndGetAsFuture);
-        System.out.println("done example3 " + Thread.currentThread());
-        result.get();
-        System.out.println("ready example3 " + Thread.currentThread());
+                .thenComposeAsync(setInfoAndGetAsFuture)
+                .thenComposeAsync(setCountAndGetAsFuture);
+        System.out.println("done example9 " + Thread.currentThread());
+        System.out.println("ready example9 " + Thread.currentThread());
+
+        CompletableFuture<Void> end = result1.acceptEither(result2, consumeResult);
+        end.get();
+        result2.get();
     }
+
+
+    /**
+     * allOf / anyOf
+     */
+    public void example10() throws Exception {
+        System.out.println("starting example10 " + Thread.currentThread());
+        CompletableFuture<Void> result1 = getSupplyNewResult("1")
+                .thenCompose(setCountAndGetAsFuture)
+                .thenAccept(consumeResult);
+        CompletableFuture<Void> result2 = getSupplyNewResult("2")
+                .thenCompose(setInfoAndGetAsFuture)
+                .thenCompose(setCountAndGetAsFuture)
+                .thenAccept(consumeResult);
+
+//        CompletableFuture<Void> bla = CompletableFuture.allOf(result1, result2);
+//        bla.join();
+
+        CompletableFuture<Object> bla = CompletableFuture.anyOf(result1, result2);
+        bla.join();
+        // das ganze auch als anyOf
+    }
+
+    public void example11() throws Exception {
+        System.out.println("starting example11 " + Thread.currentThread());
+        CompletableFuture<Result> result1 = supplyNewResult
+                .thenCompose(setCountAndGetAsFuture)
+                .thenApply((r) -> {
+                    if(r.count == 1)
+                        throw new RuntimeException();
+                    else return r;
+                })
+                .exceptionally(e -> {
+                    System.out.println("Exception --> " + e);
+                    return new Result();
+                });
+
+        result1.join();
+    }
+
+    public void example12() throws Exception {
+        System.out.println("starting example12 " + Thread.currentThread());
+        CompletableFuture<Result> result1 = supplyNewResult
+                .thenCompose(setCountAndGetAsFuture)
+                .thenCompose(setCountAndGetAsFuture)
+                .thenApply((r) -> {
+                    if (r.count == 1)
+                        throw new RuntimeException();
+                    else return r;
+                })
+                .handle((ok, e) -> {
+                    if (ok != null) {
+                        System.out.println("everything is fine");
+                        return ok;
+                    } else {
+                        System.out.println("Exception --> " + e);
+                        return new Result();
+                    }
+                });
+
+        System.out.println("bla " + result1.get());
+    }
+    /**CompletableFuture<Integer> safe = future.handle((ok, ex) -> {
+     if (ok != null) {
+     return Integer.parseInt(ok);
+     } else {
+     log.warn("Problem", ex);
+     return -1;
+     }
+     });
+     */
+
+
     public static final void main(String[] args) throws Exception {
         BasicExample basicExample = new BasicExample();
-        basicExample.example3();
+        basicExample.example12();
     }
 
 
