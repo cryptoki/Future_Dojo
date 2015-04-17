@@ -3,6 +3,7 @@ package de.dojo.future;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class BasicExample {
 
@@ -25,6 +26,7 @@ public class BasicExample {
                     '}';
         }
     }
+
 
     private CompletableFuture<Result> getSupplyNewResult(String id) {
         return
@@ -136,6 +138,12 @@ public class BasicExample {
         System.out.println("ready example3 " + Thread.currentThread());
     }
 
+    Function<Result, CompletableFuture> bla = (result -> {
+       CompletableFuture<Result> bla = new CompletableFuture();
+       bla.complete(new Result());
+        return bla;
+    });
+
     // what's happend here?
     public void example4() throws Exception {
         System.out.println("starting example4 " + Thread.currentThread());
@@ -145,8 +153,9 @@ public class BasicExample {
         CompletableFuture<Result> blub = result.thenCompose(setInfoAndGetAsFuture);
 
         System.out.println("done example4 " + Thread.currentThread());
-        result.get();
         System.out.println("ready example4 " + Thread.currentThread());
+
+        sometimeWeHadToSleep(3000, "", new Result());
     }
 
     // what's happend here?
@@ -215,7 +224,7 @@ public class BasicExample {
         result.thenAccept(consumeResult);
 
         System.out.println("done example7 " + Thread.currentThread());
-        result.get();
+        sometimeWeHadToSleep(2000, "", new Result());
         System.out.println("ready example7 " + Thread.currentThread());
     }
 
@@ -263,7 +272,6 @@ public class BasicExample {
 
         CompletableFuture<Void> end = result1.acceptEither(result2, consumeResult);
         end.get();
-        result2.get();
     }
 
 
@@ -272,35 +280,38 @@ public class BasicExample {
      */
     public void example10() throws Exception {
         System.out.println("starting example10 " + Thread.currentThread());
-        CompletableFuture<Void> result1 = getSupplyNewResult("1")
+        CompletableFuture<Void> result1 = supplyNewResult
                 .thenCompose(setCountAndGetAsFuture)
                 .thenAccept(consumeResult);
-        CompletableFuture<Void> result2 = getSupplyNewResult("2")
+        CompletableFuture<Result> result2 = supplyNewResult
                 .thenCompose(setInfoAndGetAsFuture)
-                .thenCompose(setCountAndGetAsFuture)
-                .thenAccept(consumeResult);
+                .thenCompose(setCountAndGetAsFuture);
+        result2.thenAccept(consumeResult);
+        result2.thenAccept(consumeResult);
 
-//        CompletableFuture<Void> bla = CompletableFuture.allOf(result1, result2);
-//        bla.join();
-
-        CompletableFuture<Object> bla = CompletableFuture.anyOf(result1, result2);
+        CompletableFuture<Void> bla = CompletableFuture.allOf(result1, result2);
         bla.join();
+
+//        CompletableFuture<Object> bla = CompletableFuture.anyOf(result1, result2);
+//        bla.join();
         // das ganze auch als anyOf
     }
 
     public void example11() throws Exception {
         System.out.println("starting example11 " + Thread.currentThread());
-        CompletableFuture<Result> result1 = supplyNewResult
+        CompletableFuture<Void> result1 = supplyNewResult
                 .thenCompose(setCountAndGetAsFuture)
                 .thenApply((r) -> {
-                    if(r.count == 1)
+                    if(r.count == 2)
                         throw new RuntimeException();
                     else return r;
                 })
                 .exceptionally(e -> {
                     System.out.println("Exception --> " + e);
                     return new Result();
-                });
+                })
+                .thenCompose(setCountAndGetAsFuture)
+                .thenAccept(consumeResult);
 
         result1.join();
     }
@@ -318,6 +329,7 @@ public class BasicExample {
                 .handle((ok, e) -> {
                     if (ok != null) {
                         System.out.println("everything is fine");
+                        ok.info="super geil";
                         return ok;
                     } else {
                         System.out.println("Exception --> " + e);

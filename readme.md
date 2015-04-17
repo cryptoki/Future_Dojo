@@ -2,16 +2,68 @@
 
 ## Wiederholung vom 27. Februar 2015
 
-### Sync
+### Allgemein
 * supplyAsync() - Konstruiert ein neues CompletableFuture<T> Objekt
+  * benötigt Supplier und optional Executor
+  * Executors.newFixedThreadPool(5)
+
+```Java
+CompleteableFuture.supplyAsyn( () -> doSomethingAndReturnResult() );
+```
+* runAsync
+
+``` Java
+CompleteableFuture<?> future = CompleteableFuture.runAsync(
+  () -> System.out.println("Dies ist super cool!");
+);
+```
+
 * thenApply() - Führt eine Aktion in Form eines Function<T,R> aus
 * thenAccept() - Führt eine abschließende Aktion aus
 
 *Aufrufe erfolgen im aktuellen Thread (blockierend)*
-
-### Async
 * es gibt zu jeder Methode eine async Variante, endet mit _Async_
 
+
+## Dojo
+complete()
+__________
+* mit complete wird das Ergebnis einer "noch laufenden" Berechnung von außen vorzeitig gesetzt. Das Berechnungsergebnis wird ignoriert
+
+```Java
+CompleteableFuture<Integer> future = CompleteableFuture.supplyAsync(
+  () -> {
+    try { 
+      Thread.sleep(5000); return 1234; 
+    } catch (Exception e) {}
+  });
+future.complete(1);
+```
+* man kann das ganze auch nutzen, um etwas anzutriggern
+
+
+new()
+_____
+```Java
+CompleteableFuture<Integer> future = new CompleteableFuture<Integer>();
+future.complete(1);
+```
+* erzeugt ein CompleteableFuture das über complete mit einem Wert versorgt werden kann
+
+async()
+_______
+* Methoden *mit* dem Namens-Postfix ...Async führen ihre Berechnung in einem Thread des expliziten oder impliziten Executors aus
+* Methoden *ohne* den Namens-Postfix ...Async führen ihre Berechnung im Thread des Aufrufers der Methode aus
+
+Exceptions
+______
+* eine geprüfte Exception darf _NICHT_ geworfen werden
+* ungeprüfte dürfen geworfen werden und können mit exceptionally abgefangen werden
+
+Abbruch
+_______
+* complete .. normales Ende
+* completeExceptionally .. Ende mit einer Exception
 
 
 ### Beispiele
